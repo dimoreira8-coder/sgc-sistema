@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SGC Produção</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  const app = initializeApp({
+    apiKey:"AIzaSyAq5YEXinUOlxfn1jek0Kn9NOcC0ypXqQQ",
+    authDomain:"sistemasgc-8fb4a.firebaseapp.com",
+    databaseURL:"https://sistemasgc-8fb4a-default-rtdb.firebaseio.com",
+    projectId:"sistemasgc-8fb4a",
+    storageBucket:"sistemasgc-8fb4a.firebasestorage.app",
+    messagingSenderId:"496773686461",
+    appId:"1:496773686461:web:6f8fd33c887591aa4ac3d4"
+  });
+  const db = getDatabase(app);
+  window._db=db; window._ref=ref; window._set=set; window._get=get;
+  window._update=update; window._onValue=onValue; window._fbOk=true;
+  document.dispatchEvent(new Event('fb-ready'));
+</script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --green:#22c55e;--green-dim:rgba(34,197,94,.15);
+  --blue:#3b82f6;--blue-dim:rgba(59,130,246,.15);
+  --gold:#f59e0b;--gold-dim:rgba(245,158,11,.15);
+  --red:#ef4444;--red-dim:rgba(239,68,68,.15);
+  --bg:#0f172a;--surface:#1e293b;--surface2:#293548;
+  --border:#334155;--text:#f1f5f9;--text2:#94a3b8;--text3:#64748b;
+}
+html,body{height:100%;overflow:hidden;background:#000;font-family:'DM Sans',sans-serif;color:var(--text)}
+
+/* ── SCANNER ── */
+#scanner-wrap{position:fixed;inset:0;background:#000;cursor:pointer}
+#qr-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#qr-canvas{display:none}
+
+/* overlay escuro com buraco no meio */
+.scan-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.scan-box{width:230px;height:230px;border:3px solid var(--green);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.52);position:relative;flex-shrink:0}
+.scan-line{position:absolute;left:4px;right:4px;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:sl 1.8s ease-in-out infinite;top:0}
+@keyframes sl{0%{top:0}100%{top:100%}}
+.corner{position:absolute;width:20px;height:20px;border-color:var(--green);border-style:solid}
+.c-tl{top:-3px;left:-3px;border-width:4px 0 0 4px;border-radius:4px 0 0 0}
+.c-tr{top:-3px;right:-3px;border-width:4px 4px 0 0;border-radius:0 4px 0 0}
+.c-bl{bottom:-3px;left:-3px;border-width:0 0 4px 4px;border-radius:0 0 0 4px}
+.c-br{bottom:-3px;right:-3px;border-width:0 4px 4px 0;border-radius:0 0 4px 0}
+
+/* toque para iniciar */
+.tap-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);z-index:10;gap:16px;cursor:pointer}
+.tap-icon{font-size:64px;animation:bounce 1.5s infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.tap-title{font-size:22px;font-weight:800;color:var(--text)}
+.tap-sub{font-size:14px;color:var(--text2);text-align:center;padding:0 32px;line-height:1.5}
+.tap-btn{background:var(--green);color:#fff;border:none;border-radius:12px;padding:16px 40px;font-size:17px;font-weight:800;font-family:inherit;cursor:pointer;margin-top:8px}
+
+/* barra inferior */
+.bottom-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,.95);backdrop-filter:blur(12px);border-top:1px solid var(--border);padding:10px 14px 20px;z-index:5}
+.scan-fase{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.fase-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.fase-dot.blink{animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.fase-txt{font-size:13px;font-weight:700;color:var(--text)}
+.fase-sub{font-size:11px;color:var(--text2)}
+.manual-row{display:flex;gap:8px;margin-top:6px}
+.inp-m{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--text);font-family:inherit;outline:none}
+.inp-m:focus{border-color:var(--green)}
+.btn-m{background:var(--green);color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+
+/* costureira identificada */
+.cost-bar{position:absolute;top:0;left:0;right:0;background:rgba(15,23,42,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:5;display:none}
+.cost-av{width:32px;height:32px;border-radius:8px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.cost-nm{font-size:14px;font-weight:700;color:var(--green)}
+.cost-sair{margin-left:auto;background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:4px 10px;font-size:12px;font-family:inherit;cursor:pointer}
+
+/* ── TELA CUPOM ── */
+#cupom-wrap{position:fixed;inset:0;background:var(--bg);overflow-y:auto;display:none;flex-direction:column}
+.cw-header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;flex-shrink:0}
+.cw-cost{display:flex;align-items:center;gap:8px;flex:1}
+.cw-av{width:32px;height:32px;border-radius:8px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+.cw-nm{font-size:13px;font-weight:700;color:var(--green)}
+.cw-back{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:12px;font-family:inherit;cursor:pointer}
+.cw-body{padding:14px;display:flex;flex-direction:column;gap:12px}
+
+/* dashboard mini */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.dash-val{font-size:22px;font-weight:800;line-height:1}
+.dash-val.g{color:var(--green)}
+.dash-val.gold{color:var(--gold)}
+.dash-val.r{color:var(--red)}
+.dash-lbl{font-size:10px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.prod-bar-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.prod-bar-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.prod-bar{background:var(--surface2);border-radius:99px;height:8px;overflow:hidden}
+.prod-fill{height:100%;border-radius:99px;transition:width .5s}
+.prod-detail{font-size:10px;color:var(--text3);margin-top:4px;text-align:right}
+
+/* cupom card */
+.cupom-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.cupom-num-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--text3);margin-bottom:3px}
+.cupom-prod{font-size:18px;font-weight:800;color:var(--text);margin-bottom:2px}
+.cupom-mod{font-size:12px;color:var(--text2);margin-bottom:10px}
+.cupom-badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.cbadge{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:700}
+.cb-cor{background:var(--blue-dim);color:var(--blue)}
+.cb-tam{background:var(--green-dim);color:var(--green)}
+.cb-qtd{background:var(--gold-dim);color:var(--gold)}
+.prog{background:var(--surface2);border-radius:99px;height:6px;overflow:hidden}
+.prog-f{height:100%;background:var(--green);border-radius:99px;transition:width .4s}
+.prog-lbl{font-size:10px;color:var(--text3);margin-top:3px;text-align:right}
+
+/* operações */
+.ops-titulo{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+.op-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:6px;cursor:pointer;transition:all .12s;user-select:none}
+.op-row:active{transform:scale(.98);background:var(--surface2)}
+.op-row.done{opacity:.4;cursor:default}
+.op-row.done:active{transform:none}
+.op-seq{font-size:11px;font-weight:700;color:var(--text3);width:18px;text-align:right;flex-shrink:0}
+.op-maq{font-size:10px;font-weight:800;background:var(--surface2);color:var(--text2);padding:3px 7px;border-radius:5px;min-width:34px;text-align:center;flex-shrink:0}
+.op-info{flex:1;min-width:0}
+.op-desc{font-size:13px;color:var(--text);line-height:1.3}
+.op-by{font-size:10px;color:var(--green);margin-top:2px}
+.op-t{font-size:11px;font-family:monospace;color:var(--text2);flex-shrink:0}
+.op-ico{width:26px;height:26px;border-radius:7px;background:var(--surface2);color:var(--text3);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.op-ico.done{background:var(--green-dim);color:var(--green)}
+
+.btn-ler-caixa{background:var(--green);color:#fff;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+
+/* modal confirmar */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:flex-end}
+.modal-ov.open{display:flex}
+.modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px 36px;width:100%}
+.m-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px}
+.m-sub{font-size:13px;color:var(--text2);margin-bottom:14px}
+.m-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px}
+.m-maq{font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin-bottom:4px}
+.m-desc{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.m-tempo{font-size:12px;color:var(--text2)}
+.m-btns{display:flex;gap:10px}
+.btn-cancel{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;padding:14px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.btn-ok{flex:2;background:var(--green);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+
+/* feedback */
+.feedback-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px}
+.feedback-ov.open{display:flex}
+.fb-icon{font-size:64px;margin-bottom:14px;animation:pop .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.fb-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:6px}
+.fb-sub{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.5}
+.fb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:280px;margin-bottom:20px}
+.fb-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.fb-val{font-size:20px;font-weight:800;color:var(--green)}
+.fb-lbl{font-size:10px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+.btn-prox{background:var(--green);color:#fff;border:none;border-radius:12px;padding:16px 32px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer}
+
+/* toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;font-weight:600;z-index:999;transition:transform .3s;white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.4);pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ── SCANNER ── -->
+<div id="scanner-wrap">
+  <video id="qr-video" autoplay playsinline muted webkit-playsinline></video>
+  <canvas id="qr-canvas"></canvas>
+
+  <!-- toque para iniciar (some após primeiro toque) -->
+  <div class="tap-hint" id="tap-hint">
+    <div class="tap-icon">📷</div>
+    <div class="tap-title">SGC Produção</div>
+    <div class="tap-sub">Toque em qualquer lugar para ativar a câmera e se identificar com seu crachá</div>
+    <button class="tap-btn" onclick="ativarCamera()">Toque aqui para iniciar</button>
+  </div>
+
+  <!-- frame de scan -->
+  <div class="scan-overlay" id="scan-overlay" style="display:none">
+    <div class="scan-box">
+      <div class="scan-line"></div>
+      <div class="corner c-tl"></div><div class="corner c-tr"></div>
+      <div class="corner c-bl"></div><div class="corner c-br"></div>
+    </div>
+  </div>
+
+  <!-- barra costureira identificada -->
+  <div class="cost-bar" id="cost-bar">
+    <div class="cost-av" id="cost-av">?</div>
+    <div>
+      <div class="cost-nm" id="cost-nm">—</div>
+      <div style="font-size:10px;color:var(--text2)">Identificada ✓</div>
+    </div>
+    <button class="cost-sair" onclick="trocarCostureira()">Trocar</button>
+  </div>
+
+  <!-- barra inferior -->
+  <div class="bottom-bar">
+    <div class="scan-fase">
+      <div class="fase-dot blink" id="fase-dot"></div>
+      <div>
+        <div class="fase-txt" id="fase-txt">Toque para iniciar</div>
+        <div class="fase-sub" id="fase-sub">Ative a câmera para se identificar</div>
+      </div>
+    </div>
+    <div class="manual-row">
+      <input class="inp-m" id="inp-m" type="text" placeholder="Digite o código manualmente...">
+      <button class="btn-m" onclick="processarManual()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TELA CUPOM ── -->
+<div id="cupom-wrap">
+  <div class="cw-header">
+    <div class="cw-cost">
+      <div class="cw-av" id="cw-av">?</div>
+      <div class="cw-nm" id="cw-nm">—</div>
+    </div>
+    <button class="cw-back" onclick="voltarScanner()">↩ Trocar caixa</button>
+  </div>
+  <div class="cw-body">
+    <!-- dashboard -->
+    <div class="dash-grid">
+      <div class="dash-card"><div class="dash-val g" id="d-min">0</div><div class="dash-lbl">min produzidos</div></div>
+      <div class="dash-card"><div class="dash-val gold" id="d-efic">—</div><div class="dash-lbl">eficiência</div></div>
+      <div class="dash-card"><div class="dash-val" id="d-ops">0</div><div class="dash-lbl">operações</div></div>
+      <div class="dash-card"><div class="dash-val" id="d-pec">0</div><div class="dash-lbl">peças hoje</div></div>
+    </div>
+    <div class="prod-bar-card">
+      <div class="prod-bar-head">
+        <span style="color:var(--text2);font-weight:600;font-size:12px">Produtividade do dia</span>
+        <span id="d-prod-pct" style="font-weight:800;font-size:12px;color:var(--green)">0%</span>
+      </div>
+      <div class="prod-bar"><div class="prod-fill" id="d-prod-bar" style="width:0%;background:var(--green)"></div></div>
+      <div class="prod-detail" id="d-prod-det">Jornada: — min</div>
+    </div>
+
+    <!-- cupom -->
+    <div class="cupom-card" id="cupom-card" style="display:none">
+      <div class="cupom-num-lbl" id="c-num">—</div>
+      <div class="cupom-prod" id="c-prod">—</div>
+      <div class="cupom-mod" id="c-mod">—</div>
+      <div class="cupom-badges" id="c-badges"></div>
+      <div class="prog"><div class="prog-f" id="c-prog" style="width:0%"></div></div>
+      <div class="prog-lbl" id="c-prog-lbl">—</div>
+    </div>
+
+    <div id="ops-section" style="display:none">
+      <div class="ops-titulo">Toque na operação que você fez</div>
+      <div id="ops-lista"></div>
+    </div>
+
+    <button class="btn-ler-caixa" onclick="voltarScanner()">
+      📷 Ler próxima caixa
+    </button>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR -->
+<div class="modal-ov" id="modal-op" onclick="if(event.target===this)fecharModal()">
+  <div class="modal-sheet">
+    <div class="m-title">Confirmar operação</div>
+    <div class="m-sub" id="m-sub">Você realizou esta operação?</div>
+    <div class="m-card">
+      <div class="m-maq" id="m-maq">—</div>
+      <div class="m-desc" id="m-desc">—</div>
+      <div class="m-tempo" id="m-tempo">—</div>
+    </div>
+    <div class="m-btns">
+      <button class="btn-cancel" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-ok" onclick="confirmarOp()">✓ Fiz essa operação</button>
+    </div>
+  </div>
+</div>
+
+<!-- FEEDBACK -->
+<div class="feedback-ov" id="feedback-ov">
+  <div class="fb-icon">✅</div>
+  <div class="fb-title" id="fb-title">Operação registrada!</div>
+  <div class="fb-sub" id="fb-sub">—</div>
+  <div class="fb-grid" id="fb-grid"></div>
+  <button class="btn-prox" onclick="fecharFeedback()">Próxima operação →</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let _costureira=null,_cupom=null,_opSel=null;
+let _stream=null,_scanInterval=null;
+let _fase='cracha'; // 'cracha' | 'caixa'
+let _jornadaMin=480;
+let _cameraAtiva=false;
+
+// ── UTILS ──
+function toast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur);}
+function fbLer(path){return new Promise((res,rej)=>{if(!window._fbOk){document.addEventListener('fb-ready',()=>fbLer(path).then(res).catch(rej),{once:true});return;}window._get(window._ref(window._db,path)).then(s=>res(s.exists()?s.val():null)).catch(rej);});}
+function fbEscrever(path,data){return new Promise((res,rej)=>{window._set(window._ref(window._db,path),data).then(res).catch(rej);});}
+function fbAtualizar(path,data){return new Promise((res,rej)=>{window._update(window._ref(window._db,path),data).then(res).catch(rej);});}
+
+// ── CÂMERA ──
+async function ativarCamera(){
+  document.getElementById('tap-hint').style.display='none';
+  document.getElementById('scan-overlay').style.display='flex';
+  setFase('cracha');
+  await ligarCamera();
+}
+
+async function ligarCamera(){
+  pararCamera();
+  const v=document.getElementById('qr-video');
+  const tentativas=[{video:{facingMode:{exact:'environment'}}},{video:{facingMode:'environment'}},{video:true}];
+  let stream=null;
+  for(const c of tentativas){try{stream=await navigator.mediaDevices.getUserMedia(c);break;}catch(e){}}
+  if(!stream){setStatus('Câmera indisponível — use o campo abaixo',false);return;}
+  _stream=stream;_cameraAtiva=true;
+  v.srcObject=stream;
+  v.onloadedmetadata=()=>v.play().catch(()=>{});
+  setStatus(_fase==='cracha'?'Aponte para o QR do seu crachá':'Aponte para o QR da caixa',true);
+  const c=document.getElementById('qr-canvas'),ctx=c.getContext('2d');
+  _scanInterval=setInterval(()=>{
+    if(!v||v.readyState<2||!v.videoWidth)return;
+    c.width=v.videoWidth;c.height=v.videoHeight;
+    ctx.drawImage(v,0,0);
+    try{const img=ctx.getImageData(0,0,c.width,c.height);const r=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});if(r?.data){pararCamera();processarQR(r.data);}}catch(e){}
+  },280);
+}
+
+function pararCamera(){
+  if(_stream){_stream.getTracks().forEach(t=>t.stop());_stream=null;}_cameraAtiva=false;
+  if(_scanInterval){clearInterval(_scanInterval);_scanInterval=null;}
+}
+
+function setStatus(txt,ativo){
+  document.getElementById('fase-txt').textContent=txt;
+  const dot=document.getElementById('fase-dot');
+  dot.style.background=ativo?'var(--green)':'var(--red)';
+}
+
+function setFase(f){
+  _fase=f;
+  const sub=document.getElementById('fase-sub');
+  if(f==='cracha'){sub.textContent='Leia o QR Code do seu crachá para entrar';}
+  else{sub.textContent='Leia o QR Code da caixa para abrir o pacote';}
+}
+
+// ── PROCESSAR QR ──
+function processarQR(data){
+  console.log('QR:',data);
+  // URL com cupom=
+  if(data.includes('cupom=')){try{const u=new URL(data);const n=parseInt(u.searchParams.get('cupom'));if(n){if(!_costureira){toast('Leia primeiro seu crachá!');setFase('cracha');ligarCamera();return;}buscarCupom(n);return;}}catch{}}
+  // JSON
+  try{const o=JSON.parse(data);
+    if(o.tipo==='cracha'&&o.id){buscarCostureira(o.id);return;}
+    if(o.n){if(!_costureira){toast('Leia primeiro seu crachá!');setFase('cracha');ligarCamera();return;}buscarCupom(o.n);return;}
+  }catch{}
+  // número
+  const n=parseInt(data);
+  if(n>0){if(!_costureira){toast('Leia primeiro seu crachá!');setFase('cracha');ligarCamera();return;}buscarCupom(n);return;}
+  toast('QR não reconhecido');setTimeout(()=>ligarCamera(),1500);
+}
+
+function processarManual(){
+  const v=document.getElementById('inp-m').value.trim();
+  document.getElementById('inp-m').value='';
+  if(!v){toast('Digite um código');return;}
+  pararCamera();processarQR(v);
+}
+
+// ── COSTUREIRA ──
+async function buscarCostureira(id){
+  const c=await fbLer('costureiras/'+id);
+  if(!c){toast('Crachá não encontrado');setTimeout(()=>ligarCamera(),1500);return;}
+  _costureira={id,nome:c.nome,funcao:c.funcao||'costureira'};
+  const jornada=await fbLer('config/jornada');
+  _jornadaMin=jornada||480;
+  // Mostrar na barra
+  document.getElementById('cost-av').textContent=c.nome[0].toUpperCase();
+  document.getElementById('cost-nm').textContent=c.nome;
+  document.getElementById('cost-bar').style.display='flex';
+  // Ir para tela de cupom
+  mostrarTelaCupom();
+  atualizarDashboard();
+  // Voltar câmera para ler caixa
+  setTimeout(()=>{setFase('caixa');ligarCamera();},600);
+}
+
+function trocarCostureira(){
+  _costureira=null;_cupom=null;
+  document.getElementById('cost-bar').style.display='none';
+  esconderCupom();
+  setFase('cracha');
+  ligarCamera();
+}
+
+// ── CUPOM ──
+async function buscarCupom(num){
+  toast('Buscando cupom #'+num+'...');
+  const c=await fbLer('cupons/'+num);
+  if(!c){toast('Cupom #'+num+' não encontrado');setTimeout(()=>ligarCamera(),2000);return;}
+  _cupom={num,...c};
+  renderCupom();
+}
+
+function mostrarTelaCupom(){
+  document.getElementById('scanner-wrap').style.display='block';
+  document.getElementById('cupom-wrap').style.display='flex';
+}
+
+function esconderCupom(){
+  document.getElementById('cupom-wrap').style.display='none';
+  document.getElementById('cupom-card').style.display='none';
+  document.getElementById('ops-section').style.display='none';
+}
+
+function voltarScanner(){
+  _cupom=null;
+  document.getElementById('cupom-card').style.display='none';
+  document.getElementById('ops-section').style.display='none';
+  if(_costureira){setFase('caixa');ligarCamera();}
+  // Scroll para o scanner
+  window.scrollTo(0,0);
+  document.getElementById('cupom-wrap').style.display='none';
+  document.getElementById('scanner-wrap').style.display='block';
+  if(_costureira){setFase('caixa');ligarCamera();}
+}
+
+function renderCupom(){
+  if(!_cupom)return;
+  const c=_cupom;
+  mostrarTelaCupom();
+  document.getElementById('cupom-card').style.display='block';
+  document.getElementById('ops-section').style.display='block';
+  document.getElementById('c-num').textContent='CUPOM #'+c.num+' · '+(c.data||'');
+  document.getElementById('c-prod').textContent=c.produto||'—';
+  document.getElementById('c-mod').textContent=c.modelo||'—';
+  document.getElementById('c-badges').innerHTML=`
+    <span class="cbadge cb-cor">${c.cor||'—'}</span>
+    <span class="cbadge cb-tam">${c.tamanho||'—'}</span>
+    <span class="cbadge cb-qtd">${c.qtd||0} peças · ${(c.tempoCupom||0).toFixed(1)}min</span>`;
+  const total=c.ops?c.ops.length:0,feitas=c.ops?c.ops.filter(o=>o.status==='concluido').length:0;
+  const pct=total?Math.round(feitas/total*100):0;
+  document.getElementById('c-prog').style.width=pct+'%';
+  document.getElementById('c-prog-lbl').textContent=feitas+'/'+total+' operações ('+pct+'%)';
+  document.getElementById('ops-lista').innerHTML=(c.ops||[]).map((op,i)=>{
+    const done=op.status==='concluido';
+    return`<div class="op-row${done?' done':''}" onclick="${!done?'selecionarOp('+i+')':''}">
+      <span class="op-seq">${op.seq}</span>
+      <span class="op-maq">${op.maquina||'—'}</span>
+      <div class="op-info">
+        <div class="op-desc">${op.operacao||'—'}</div>
+        ${done?`<div class="op-by">✓ ${op.costureiraNome||''} · ${op.horaFim||''}</div>`:''}
+      </div>
+      <span class="op-t">${((op.tempo||0)*(c.qtd||1)).toFixed(1)}min</span>
+      <div class="op-ico${done?' done'}">${done?'✓':'○'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── OPERAÇÃO ──
+function selecionarOp(i){
+  if(!_cupom?.ops?.[i]||_cupom.ops[i].status==='concluido')return;
+  _opSel=i;const op=_cupom.ops[i];
+  const tt=((op.tempo||0)*(_cupom.qtd||1)).toFixed(2);
+  document.getElementById('m-maq').textContent=op.maquina||'—';
+  document.getElementById('m-desc').textContent=op.operacao||'—';
+  document.getElementById('m-tempo').textContent=`${(op.tempo||0).toFixed(3)} min/peça × ${_cupom.qtd} peças = ${tt} min`;
+  document.getElementById('m-sub').textContent=`${_costureira?.nome||''}, você fez esta operação?`;
+  document.getElementById('modal-op').classList.add('open');
+}
+function fecharModal(){document.getElementById('modal-op').classList.remove('open');_opSel=null;}
+
+async function confirmarOp(){
+  if(_opSel===null||!_cupom||!_costureira)return;
+  fecharModal();
+  const agora=new Date(),hora=agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),data=agora.toLocaleDateString('pt-BR');
+  const op=_cupom.ops[_opSel],min=parseFloat(((op.tempo||0)*(_cupom.qtd||1)).toFixed(2));
+  await fbAtualizar('cupons/'+_cupom.num+'/ops/'+_opSel,{status:'concluido',costureira:_costureira.id,costureiraNome:_costureira.nome,horaFim:hora,dataFim:data});
+  await fbEscrever('lancamentos/'+Date.now(),{cupomNum:_cupom.num,produto:_cupom.produto,cor:_cupom.cor,tamanho:_cupom.tamanho,qtd:_cupom.qtd,opSeq:op.seq,opDesc:op.operacao,maquina:op.maquina,tempoPeca:op.tempo||0,minProduzidos:min,costureira:_costureira.id,costureiraNome:_costureira.nome,hora,data});
+  _cupom.ops[_opSel]={..._cupom.ops[_opSel],status:'concluido',costureira:_costureira.id,costureiraNome:_costureira.nome,horaFim:hora};
+  await verificarCupomFechado();
+  await atualizarDashboard();
+  renderCupom();
+  mostrarFeedback(op,min);
+}
+
+async function verificarCupomFechado(){
+  const c=await fbLer('cupons/'+_cupom.num);if(!c)return;
+  const t=c.ops?c.ops.length:0,f=c.ops?c.ops.filter(o=>o.status==='concluido').length:0;
+  if(f===t&&t>0){
+    await fbAtualizar('cupons/'+_cupom.num,{status:'concluido',dataConclusao:new Date().toLocaleDateString('pt-BR')});
+    const key=(c.produto+'_'+c.tamanho).replace(/[^a-zA-Z0-9_]/g,'_');
+    const est=await fbLer('estoque/'+key);
+    await fbEscrever('estoque/'+key,{produto:c.produto,tamanho:c.tamanho,qtd:(est?.qtd||0)+(c.qtd||0),ultimaEntrada:new Date().toLocaleDateString('pt-BR')});
+    toast('🎉 Cupom concluído! '+c.qtd+' peças no estoque!',4000);
+  }
+}
+
+// ── DASHBOARD ──
+async function atualizarDashboard(){
+  if(!_costureira)return;
+  const hoje=new Date().toLocaleDateString('pt-BR');
+  const lancs=await fbLer('lancamentos');
+  let min=0,ops=0,pec=0;
+  if(lancs)Object.values(lancs).forEach(l=>{if(l.costureira===_costureira.id&&l.data===hoje){min+=l.minProduzidos||0;ops++;pec+=l.qtd||0;}});
+  const efic=_jornadaMin>0?Math.min(Math.round(min/_jornadaMin*100),999):0;
+  const cor=efic>=90?'g':efic>=70?'gold':'r';
+  document.getElementById('d-min').textContent=min.toFixed(0);
+  document.getElementById('d-efic').textContent=efic+'%';
+  document.getElementById('d-efic').className='dash-val '+cor;
+  document.getElementById('d-ops').textContent=ops;
+  document.getElementById('d-pec').textContent=pec;
+  document.getElementById('d-prod-pct').textContent=efic+'%';
+  document.getElementById('d-prod-pct').style.color=efic>=90?'var(--green)':efic>=70?'var(--gold)':'var(--red)';
+  document.getElementById('d-prod-bar').style.width=Math.min(efic,100)+'%';
+  document.getElementById('d-prod-bar').style.background=efic>=90?'var(--green)':efic>=70?'var(--gold)':'var(--red)';
+  document.getElementById('d-prod-det').textContent=`Jornada: ${_jornadaMin} min | Produzido: ${min.toFixed(0)} min`;
+}
+
+// ── FEEDBACK ──
+function mostrarFeedback(op,min){
+  document.getElementById('fb-title').textContent='Operação registrada! ✓';
+  document.getElementById('fb-sub').textContent=op.operacao+'\n'+op.maquina;
+  const efic=parseInt(document.getElementById('d-efic').textContent)||0;
+  document.getElementById('fb-grid').innerHTML=`
+    <div class="fb-stat"><div class="fb-val">${min.toFixed(1)}</div><div class="fb-lbl">min ganhos</div></div>
+    <div class="fb-stat"><div class="fb-val" style="color:${efic>=90?'var(--green)':efic>=70?'var(--gold)':'var(--red)'}">${efic}%</div><div class="fb-lbl">eficiência</div></div>
+    <div class="fb-stat"><div class="fb-val">${document.getElementById('d-ops').textContent}</div><div class="fb-lbl">operações</div></div>
+    <div class="fb-stat"><div class="fb-val">${document.getElementById('d-pec').textContent}</div><div class="fb-lbl">peças hoje</div></div>`;
+  document.getElementById('feedback-ov').classList.add('open');
+}
+function fecharFeedback(){document.getElementById('feedback-ov').classList.remove('open');}
+
+// ── INIT ──
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('cupom-wrap').style.display='none';
+  const params=new URLSearchParams(window.location.search);
+  const cp=params.get('cupom');
+  if(cp){window._cupomPendente=parseInt(cp);document.getElementById('fase-sub').textContent='Leia seu crachá para abrir o cupom #'+cp;}
+  window._fbOk&&fbLer('config/jornada').then(j=>{if(j)_jornadaMin=j;});
+  document.addEventListener('fb-ready',()=>fbLer('config/jornada').then(j=>{if(j)_jornadaMin=j;}),{once:true});
+});
+</script>
+</body>
+</html>
