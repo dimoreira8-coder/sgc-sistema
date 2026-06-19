@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SGC Producao v4</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase via CDN compativel com todos browsers -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey:"AIzaSyAq5YEXinUOlxfn1jek0Kn9NOcC0ypXqQQ",
+    authDomain:"sistemasgc-8fb4a.firebaseapp.com",
+    databaseURL:"https://sistemasgc-8fb4a-default-rtdb.firebaseio.com",
+    projectId:"sistemasgc-8fb4a",
+    storageBucket:"sistemasgc-8fb4a.firebasestorage.app",
+    messagingSenderId:"496773686461",
+    appId:"1:496773686461:web:6f8fd33c887591aa4ac3d4"
+  });
+  var db = firebase.database();
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --green:#22c55e;--green-dim:rgba(34,197,94,.15);
+  --gold:#f59e0b;--gold-dim:rgba(245,158,11,.15);
+  --red:#ef4444;--blue:#3b82f6;--blue-dim:rgba(59,130,246,.15);
+  --bg:#0f172a;--surface:#1e293b;--surface2:#293548;
+  --border:#334155;--text:#f1f5f9;--text2:#94a3b8;--text3:#64748b;
+}
+html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--text);overflow:hidden}
+.tela{display:none;height:100vh;flex-direction:column}
+.tela.ativa{display:flex}
+#tela-inicio{align-items:center;justify-content:center;padding:32px;text-align:center;gap:20px}
+.btn-iniciar{background:var(--green);color:#fff;border:none;border-radius:14px;padding:18px 0;font-size:20px;font-weight:800;font-family:inherit;width:100%;max-width:320px;margin-top:8px;cursor:pointer;-webkit-appearance:none}
+#tela-scanner{position:relative;background:#000}
+#qr-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#qr-canvas{display:none}
+.scan-ui{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.scan-frame{width:230px;height:230px;border:3px solid var(--green);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,.52);position:relative}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);animation:sl 1.8s ease-in-out infinite}
+@keyframes sl{0%{top:0}100%{top:100%}}
+.cn{position:absolute;width:20px;height:20px;border-color:var(--green);border-style:solid}
+.cn.tl{top:-3px;left:-3px;border-width:4px 0 0 4px;border-radius:4px 0 0 0}
+.cn.tr{top:-3px;right:-3px;border-width:4px 4px 0 0;border-radius:0 4px 0 0}
+.cn.bl{bottom:-3px;left:-3px;border-width:0 0 4px 4px;border-radius:0 0 0 4px}
+.cn.br{bottom:-3px;right:-3px;border-width:0 4px 4px 0;border-radius:0 0 4px 0}
+.scan-label{margin-top:20px;background:rgba(0,0,0,.65);border-radius:10px;padding:10px 20px;text-align:center}
+.scan-label h3{font-size:14px;font-weight:700;color:#fff;margin-bottom:2px}
+.scan-label p{font-size:12px;color:rgba(255,255,255,.6)}
+.scan-bottom{position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,.95);border-top:1px solid var(--border);padding:12px 14px 24px}
+.scan-status{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.stxt{font-size:12px;font-weight:600;color:var(--text2)}
+.manual-row{display:flex;gap:8px}
+.inp-manual{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--text);font-family:inherit;outline:none}
+.btn-manual{background:var(--green);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+#tela-cupom{overflow-y:auto}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;position:sticky;top:0;z-index:5}
+.cost-pill{display:flex;align-items:center;gap:8px;background:var(--green-dim);border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:6px 12px;flex:1}
+.cost-av{width:28px;height:28px;border-radius:7px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
+.cost-nome{font-size:13px;font-weight:700;color:var(--green)}
+.btn-trocar{background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 12px;font-size:12px;font-family:inherit;cursor:pointer}
+.body-pad{padding:14px;display:flex;flex-direction:column;gap:12px}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.dval{font-size:22px;font-weight:800;line-height:1}
+.dval.g{color:var(--green)}.dval.gold{color:var(--gold)}.dval.r{color:var(--red)}
+.dlbl{font-size:10px;color:var(--text2);margin-top:3px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.prod-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.prod-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px}
+.prod-bar{background:var(--surface2);border-radius:99px;height:8px;overflow:hidden}
+.prod-fill{height:100%;border-radius:99px;transition:width .5s}
+.prod-det{font-size:10px;color:var(--text3);margin-top:4px;text-align:right}
+.cupom-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px}
+.c-num{font-size:10px;font-weight:700;letter-spacing:.8px;color:var(--text3);margin-bottom:3px}
+.c-prod{font-size:18px;font-weight:800;margin-bottom:2px}
+.c-mod{font-size:12px;color:var(--text2);margin-bottom:10px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.badge{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:700}
+.b-cor{background:var(--blue-dim);color:var(--blue)}
+.b-tam{background:var(--green-dim);color:var(--green)}
+.b-qtd{background:var(--gold-dim);color:var(--gold)}
+.prog{background:var(--surface2);border-radius:99px;height:6px;overflow:hidden}
+.prog-f{height:100%;background:var(--green);border-radius:99px;transition:width .4s}
+.prog-lbl{font-size:10px;color:var(--text3);margin-top:3px;text-align:right}
+.ops-tit{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text2);margin-bottom:6px}
+.op-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:6px;cursor:pointer;user-select:none}
+.op-row:active{background:var(--surface2)}
+.op-row.done{opacity:.4;cursor:default}
+.op-seq{font-size:11px;font-weight:700;color:var(--text3);width:18px;text-align:right;flex-shrink:0}
+.op-maq{font-size:10px;font-weight:800;background:var(--surface2);color:var(--text2);padding:3px 7px;border-radius:5px;min-width:34px;text-align:center;flex-shrink:0}
+.op-inf{flex:1;min-width:0}
+.op-desc{font-size:13px;color:var(--text);line-height:1.3}
+.op-by{font-size:10px;color:var(--green);margin-top:2px}
+.op-t{font-size:11px;font-family:monospace;color:var(--text2);flex-shrink:0}
+.op-ico{width:26px;height:26px;border-radius:7px;background:var(--surface2);color:var(--text3);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.op-ico.done{background:var(--green-dim);color:var(--green)}
+.btn-ler{background:var(--green);color:#fff;border:none;border-radius:12px;padding:16px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;-webkit-appearance:none}
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:flex-end}
+.modal-ov.open{display:flex}
+.modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px 36px;width:100%}
+.m-tit{font-size:16px;font-weight:800;margin-bottom:4px}
+.m-sub{font-size:13px;color:var(--text2);margin-bottom:14px}
+.m-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px}
+.m-maq{font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.5px;margin-bottom:4px}
+.m-desc{font-size:15px;font-weight:700;margin-bottom:4px}
+.m-tempo{font-size:12px;color:var(--text2)}
+.m-btns{display:flex;gap:10px}
+.btn-cancel{flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:10px;padding:14px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.btn-ok{flex:2;background:var(--green);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.fb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px}
+.fb-ov.open{display:flex}
+.fb-icon{font-size:64px;margin-bottom:14px}
+.fb-tit{font-size:20px;font-weight:800;margin-bottom:6px}
+.fb-sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+.fb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:280px;margin-bottom:20px}
+.fb-stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px}
+.fb-val{font-size:20px;font-weight:800;color:var(--green)}
+.fb-lbl{font-size:10px;color:var(--text2);margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+.btn-prox{background:var(--green);color:#fff;border:none;border-radius:12px;padding:16px 32px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:14px;font-weight:600;z-index:999;transition:transform .3s;white-space:nowrap;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- TELA INICIO -->
+<div class="tela ativa" id="tela-inicio">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:20px">
+    <div style="font-size:72px">🧵</div>
+    <div>
+      <div style="font-size:26px;font-weight:800">SGC <span style="color:var(--green)">Producao</span></div>
+      <div style="font-size:14px;color:var(--text2);margin-top:8px;line-height:1.6">Leia seu cracha para entrar<br>e registrar sua producao</div>
+    </div>
+    <button class="btn-iniciar" onclick="btnIniciar()">Iniciar</button>
+  </div>
+</div>
+
+<!-- TELA SCANNER -->
+<div class="tela" id="tela-scanner">
+  <video id="qr-video" autoplay playsinline muted webkit-playsinline x5-playsinline></video>
+  <canvas id="qr-canvas"></canvas>
+  <div class="scan-ui">
+    <div class="scan-frame">
+      <div class="scan-line"></div>
+      <div class="cn tl"></div><div class="cn tr"></div>
+      <div class="cn bl"></div><div class="cn br"></div>
+    </div>
+    <div class="scan-label">
+      <h3 id="scan-titulo">Leia seu cracha</h3>
+      <p id="scan-sub">Aponte para o QR Code do seu cracha</p>
+    </div>
+  </div>
+  <div class="scan-bottom">
+    <div class="scan-status">
+      <div class="sdot"></div>
+      <span class="stxt" id="scan-stxt">Iniciando camera...</span>
+    </div>
+    <div class="manual-row">
+      <input class="inp-manual" id="inp-manual" type="text" placeholder="Digite o codigo manualmente...">
+      <button class="btn-manual" onclick="processarManual()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- TELA CUPOM -->
+<div class="tela" id="tela-cupom">
+  <div class="header">
+    <div class="cost-pill">
+      <div class="cost-av" id="cost-av">?</div>
+      <span class="cost-nome" id="cost-nome">-</span>
+    </div>
+    <button class="btn-trocar" onclick="trocar()">Sair</button>
+  </div>
+  <div class="body-pad">
+    <div class="dash-grid">
+      <div class="dash-card"><div class="dval g" id="d-min">0</div><div class="dlbl">min produzidos</div></div>
+      <div class="dash-card"><div class="dval gold" id="d-efic">0%</div><div class="dlbl">produtividade</div></div>
+      <div class="dash-card"><div class="dval" id="d-ops">0</div><div class="dlbl">operacoes</div></div>
+      <div class="dash-card"><div class="dval" id="d-pec">0</div><div class="dlbl">pecas hoje</div></div>
+    </div>
+    <div class="prod-card">
+      <div class="prod-head">
+        <span style="color:var(--text2);font-weight:600">Produtividade do dia</span>
+        <span id="d-pct" style="font-weight:800;color:var(--green)">0%</span>
+      </div>
+      <div class="prod-bar"><div class="prod-fill" id="d-bar" style="width:0%;background:var(--green)"></div></div>
+      <div class="prod-det" id="d-det">Jornada: - min</div>
+    </div>
+    <div id="cupom-section" style="display:none">
+      <div class="cupom-card">
+        <div class="c-num" id="c-num">-</div>
+        <div class="c-prod" id="c-prod">-</div>
+        <div class="c-mod" id="c-mod">-</div>
+        <div class="badges" id="c-badges"></div>
+        <div class="prog"><div class="prog-f" id="c-prog" style="width:0%"></div></div>
+        <div class="prog-lbl" id="c-prog-lbl">-</div>
+      </div>
+      <div style="margin-top:12px">
+        <div class="ops-tit">Toque na operacao que voce fez</div>
+        <div id="ops-lista"></div>
+      </div>
+    </div>
+    <div id="sem-cupom" style="text-align:center;padding:32px 20px;color:var(--text2)">
+      <div style="font-size:40px;margin-bottom:10px">📦</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">Nenhum pacote aberto</div>
+      <div style="font-size:13px;margin-bottom:20px">Leia o QR Code da caixa para comecar</div>
+    </div>
+    <button class="btn-ler" onclick="lerCaixa()">Ler QR Code da caixa</button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-ov" id="modal-op">
+  <div class="modal-sheet">
+    <div class="m-tit">Confirmar operacao</div>
+    <div class="m-sub" id="m-sub">Voce realizou esta operacao?</div>
+    <div class="m-card">
+      <div class="m-maq" id="m-maq">-</div>
+      <div class="m-desc" id="m-desc">-</div>
+      <div class="m-tempo" id="m-tempo">-</div>
+    </div>
+    <div class="m-btns">
+      <button class="btn-cancel" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-ok" onclick="confirmarOp()">Fiz essa operacao</button>
+    </div>
+  </div>
+</div>
+
+<!-- FEEDBACK -->
+<div class="fb-ov" id="fb-ov">
+  <div class="fb-icon">✅</div>
+  <div class="fb-tit" id="fb-tit">Operacao registrada!</div>
+  <div class="fb-sub" id="fb-sub">-</div>
+  <div class="fb-grid" id="fb-grid"></div>
+  <button class="btn-prox" onclick="fecharFb()">Proxima</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var _cost=null,_cupom=null,_opSel=null;
+var _stream=null,_timer=null,_fase='cracha',_jornada=480;
+
+function toast(m,d){
+  d=d||2500;
+  var t=document.getElementById('toast');
+  t.textContent=m;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},d);
+}
+
+function irTela(id){
+  var telas=document.querySelectorAll('.tela');
+  for(var i=0;i<telas.length;i++) telas[i].classList.remove('ativa');
+  document.getElementById('tela-'+id).classList.add('ativa');
+}
+
+function fbLer(path,cb){
+  db.ref(path).get().then(function(s){cb(s.exists()?s.val():null);}).catch(function(){cb(null);});
+}
+function fbSet(path,data){db.ref(path).set(data);}
+function fbUpd(path,data){db.ref(path).update(data);}
+
+function btnIniciar(){
+  irTela('scanner');
+  document.getElementById('scan-titulo').textContent='Leia seu cracha';
+  document.getElementById('scan-sub').textContent='Aponte para o QR Code do seu cracha';
+  _fase='cracha';
+  setTimeout(function(){iniciarCamera();},200);
+}
+
+function iniciarCamera(){
+  pararCamera();
+  var v=document.getElementById('qr-video');
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
+  .catch(function(){return navigator.mediaDevices.getUserMedia({video:true});})
+  .then(function(stream){
+    _stream=stream;
+    v.srcObject=stream;
+    v.play();
+    document.getElementById('scan-stxt').textContent='Camera ativa - aguardando leitura';
+    var c=document.getElementById('qr-canvas');
+    var ctx=c.getContext('2d');
+    _timer=setInterval(function(){
+      if(v.readyState!==v.HAVE_ENOUGH_DATA)return;
+      c.width=v.videoWidth;c.height=v.videoHeight;
+      ctx.drawImage(v,0,0);
+      var img=ctx.getImageData(0,0,c.width,c.height);
+      var r=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+      if(r&&r.data){pararCamera();processarQR(r.data);}
+    },300);
+  })
+  .catch(function(){
+    document.getElementById('scan-stxt').textContent='Camera indisponivel - use o campo abaixo';
+  });
+}
+
+function pararCamera(){
+  if(_stream){_stream.getTracks().forEach(function(t){t.stop();});_stream=null;}
+  if(_timer){clearInterval(_timer);_timer=null;}
+}
+
+function processarQR(data){
+  if(data.indexOf('cupom=')>=0){
+    try{
+      var u=new URL(data);
+      var n=parseInt(u.searchParams.get('cupom'));
+      if(n){buscarCupom(n);return;}
+    }catch(e){}
+  }
+  try{
+    var o=JSON.parse(data);
+    if(o.tipo==='cracha'&&o.id){buscarCostureira(o.id);return;}
+    if(o.n){buscarCupom(o.n);return;}
+  }catch(e){}
+  var n=parseInt(data);
+  if(n>0){buscarCupom(n);return;}
+  toast('QR nao reconhecido');
+  setTimeout(function(){iniciarCamera();},1500);
+}
+
+function processarManual(){
+  var v=document.getElementById('inp-manual').value.trim();
+  document.getElementById('inp-manual').value='';
+  if(!v){toast('Digite um codigo');return;}
+  pararCamera();processarQR(v);
+}
+
+function buscarCostureira(id){
+  fbLer('costureiras/'+id,function(c){
+    if(!c){toast('Cracha nao encontrado');setTimeout(function(){iniciarCamera();},1500);return;}
+    _cost={id:id,nome:c.nome,funcao:c.funcao||'costureira'};
+    fbLer('config/jornada',function(j){_jornada=j||480;});
+    document.getElementById('cost-av').textContent=c.nome[0].toUpperCase();
+    document.getElementById('cost-nome').textContent=c.nome;
+    irTela('cupom');
+    atualizarDash();
+    toast('Bem-vinda, '+c.nome.split(' ')[0]+'!');
+  });
+}
+
+function trocar(){
+  pararCamera();_cost=null;_cupom=null;
+  irTela('inicio');
+}
+
+function lerCaixa(){
+  irTela('scanner');
+  _fase='caixa';
+  document.getElementById('scan-titulo').textContent='Leia a caixa';
+  document.getElementById('scan-sub').textContent='Aponte para o QR Code do pacote';
+  setTimeout(function(){iniciarCamera();},200);
+}
+
+function buscarCupom(num){
+  if(!_cost){toast('Leia primeiro seu cracha!');_fase='cracha';iniciarCamera();return;}
+  irTela('cupom');
+  toast('Buscando cupom #'+num+'...');
+  fbLer('cupons/'+num,function(c){
+    if(!c){toast('Cupom #'+num+' nao encontrado');return;}
+    _cupom=Object.assign({num:num},c);
+    renderCupom();
+  });
+}
+
+function renderCupom(){
+  if(!_cupom)return;
+  var c=_cupom;
+  document.getElementById('sem-cupom').style.display='none';
+  document.getElementById('cupom-section').style.display='block';
+  document.getElementById('c-num').textContent='CUPOM #'+c.num+' - '+(c.data||'');
+  document.getElementById('c-prod').textContent=c.produto||'-';
+  document.getElementById('c-mod').textContent=c.modelo||'-';
+  document.getElementById('c-badges').innerHTML=
+    '<span class="badge b-cor">'+(c.cor||'-')+'</span>'+
+    '<span class="badge b-tam">'+(c.tamanho||'-')+'</span>'+
+    '<span class="badge b-qtd">'+(c.qtd||0)+' pecas - '+((c.tempoCupom||0).toFixed(1))+'min</span>';
+  var ops=c.ops||[];
+  var total=ops.length,feitas=0;
+  for(var i=0;i<ops.length;i++) if(ops[i].status==='concluido') feitas++;
+  var pct=total?Math.round(feitas/total*100):0;
+  document.getElementById('c-prog').style.width=pct+'%';
+  document.getElementById('c-prog-lbl').textContent=feitas+'/'+total+' operacoes ('+pct+'%)';
+  var html='';
+  for(var i=0;i<ops.length;i++){
+    var op=ops[i],done=op.status==='concluido';
+    html+='<div class="op-row'+(done?' done':'')+'" onclick="'+(done?'':'selOp('+i+')')+'">'+
+      '<span class="op-seq">'+op.seq+'</span>'+
+      '<span class="op-maq">'+(op.maquina||'-')+'</span>'+
+      '<div class="op-inf">'+
+        '<div class="op-desc">'+(op.operacao||'-')+'</div>'+
+        (done?'<div class="op-by">✓ '+(op.costureiraNome||'')+' - '+(op.horaFim||'')+'</div>':'')+
+      '</div>'+
+      '<span class="op-t">'+((op.tempo||0)*(c.qtd||1)).toFixed(1)+'min</span>'+
+      '<div class="op-ico'+(done?' done')+'">'+(done?'✓':'○')+'</div>'+
+    '</div>';
+  }
+  document.getElementById('ops-lista').innerHTML=html;
+}
+
+function selOp(i){
+  if(!_cupom||!_cupom.ops||!_cupom.ops[i]||_cupom.ops[i].status==='concluido')return;
+  _opSel=i;
+  var op=_cupom.ops[i];
+  var tt=((op.tempo||0)*(_cupom.qtd||1)).toFixed(2);
+  document.getElementById('m-maq').textContent=op.maquina||'-';
+  document.getElementById('m-desc').textContent=op.operacao||'-';
+  document.getElementById('m-tempo').textContent=(op.tempo||0).toFixed(3)+' min/peca x '+_cupom.qtd+' pecas = '+tt+' min';
+  document.getElementById('m-sub').textContent=(_cost?_cost.nome:'')+', voce fez esta operacao?';
+  document.getElementById('modal-op').classList.add('open');
+}
+function fecharModal(){document.getElementById('modal-op').classList.remove('open');_opSel=null;}
+
+function confirmarOp(){
+  if(_opSel===null||!_cupom||!_cost)return;
+  fecharModal();
+  var agora=new Date();
+  var hora=agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  var data=agora.toLocaleDateString('pt-BR');
+  var op=_cupom.ops[_opSel];
+  var min=parseFloat(((op.tempo||0)*(_cupom.qtd||1)).toFixed(2));
+  fbUpd('cupons/'+_cupom.num+'/ops/'+_opSel,{
+    status:'concluido',costureira:_cost.id,costureiraNome:_cost.nome,horaFim:hora,dataFim:data
+  });
+  fbSet('lancamentos/'+Date.now(),{
+    cupomNum:_cupom.num,produto:_cupom.produto,cor:_cupom.cor,tamanho:_cupom.tamanho,
+    qtd:_cupom.qtd,opSeq:op.seq,opDesc:op.operacao,maquina:op.maquina,
+    tempoPeca:op.tempo||0,minProduzidos:min,
+    costureira:_cost.id,costureiraNome:_cost.nome,hora:hora,data:data
+  });
+  _cupom.ops[_opSel]=Object.assign({},_cupom.ops[_opSel],{
+    status:'concluido',costureira:_cost.id,costureiraNome:_cost.nome,horaFim:hora
+  });
+  verificarFechado();
+  atualizarDash();
+  renderCupom();
+  mostrarFb(op,min);
+}
+
+function verificarFechado(){
+  fbLer('cupons/'+_cupom.num,function(c){
+    if(!c)return;
+    var t=c.ops?c.ops.length:0,f=0;
+    if(c.ops) for(var i=0;i<c.ops.length;i++) if(c.ops[i].status==='concluido') f++;
+    if(f===t&&t>0){
+      fbUpd('cupons/'+_cupom.num,{status:'concluido',dataConclusao:new Date().toLocaleDateString('pt-BR')});
+      var key=(c.produto+'_'+c.tamanho).replace(/[^a-zA-Z0-9_]/g,'_');
+      fbLer('estoque/'+key,function(est){
+        fbSet('estoque/'+key,{produto:c.produto,tamanho:c.tamanho,qtd:(est?est.qtd||0:0)+(c.qtd||0),ultimaEntrada:new Date().toLocaleDateString('pt-BR')});
+      });
+      toast('Cupom finalizado! '+c.qtd+' pecas no estoque!',4000);
+    }
+  });
+}
+
+function atualizarDash(){
+  if(!_cost)return;
+  var hoje=new Date().toLocaleDateString('pt-BR');
+  fbLer('lancamentos',function(lancs){
+    var min=0,ops=0,pec=0;
+    if(lancs){
+      var keys=Object.keys(lancs);
+      for(var i=0;i<keys.length;i++){
+        var l=lancs[keys[i]];
+        if(l.costureira===_cost.id&&l.data===hoje){min+=l.minProduzidos||0;ops++;pec+=l.qtd||0;}
+      }
+    }
+    var prod=_jornada>0?Math.min(Math.round(min/_jornada*100),999):0;
+    var cor=prod>=90?'g':prod>=70?'gold':'r';
+    document.getElementById('d-min').textContent=min.toFixed(0);
+    document.getElementById('d-efic').textContent=prod+'%';
+    document.getElementById('d-efic').className='dval '+cor;
+    document.getElementById('d-ops').textContent=ops;
+    document.getElementById('d-pec').textContent=pec;
+    document.getElementById('d-pct').textContent=prod+'%';
+    document.getElementById('d-pct').style.color=prod>=90?'var(--green)':prod>=70?'var(--gold)':'var(--red)';
+    document.getElementById('d-bar').style.width=Math.min(prod,100)+'%';
+    document.getElementById('d-bar').style.background=prod>=90?'var(--green)':prod>=70?'var(--gold)':'var(--red)';
+    document.getElementById('d-det').textContent='Jornada: '+_jornada+' min | Produzido: '+min.toFixed(0)+' min';
+  });
+}
+
+function mostrarFb(op,min){
+  document.getElementById('fb-tit').textContent='Operacao registrada!';
+  document.getElementById('fb-sub').textContent=op.operacao+' - '+op.maquina;
+  var prod=parseInt(document.getElementById('d-efic').textContent)||0;
+  var cor=prod>=90?'var(--green)':prod>=70?'var(--gold)':'var(--red)';
+  document.getElementById('fb-grid').innerHTML=
+    '<div class="fb-stat"><div class="fb-val">'+min.toFixed(1)+'</div><div class="fb-lbl">min ganhos</div></div>'+
+    '<div class="fb-stat"><div class="fb-val" style="color:'+cor+'">'+prod+'%</div><div class="fb-lbl">produtividade</div></div>'+
+    '<div class="fb-stat"><div class="fb-val">'+document.getElementById('d-ops').textContent+'</div><div class="fb-lbl">operacoes</div></div>'+
+    '<div class="fb-stat"><div class="fb-val">'+document.getElementById('d-pec').textContent+'</div><div class="fb-lbl">pecas hoje</div></div>';
+  document.getElementById('fb-ov').classList.add('open');
+}
+function fecharFb(){document.getElementById('fb-ov').classList.remove('open');}
+</script>
+</body>
+</html>
